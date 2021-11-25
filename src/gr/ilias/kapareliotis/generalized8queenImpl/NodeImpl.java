@@ -55,20 +55,34 @@ public class NodeImpl extends Node {
     }
 
     @Override
-    public int generateSchemaInstance() {
-        int index = 0;
+    public int[] generateSchemaInstance() {
+        int[] instance = null;
+        int firstIndex = 0;
+        int lastIndex = 0;
         for (int i = 0; i < this.rows.length; ++i) {
-            if (this.algorithm.generateFitnessGoal(i + 1)
-                    == this.algorithm.generateFitnessScore(this, 0, i))
-            {
-                ++index;
+            int tempIndex = i;
+            for (int j = i + 1; j < this.rows.length; ++j) {
+                if (this.algorithm.generateFitnessGoal(j - i + 1)
+                        == this.algorithm.generateFitnessScore(this, i, j))
+                {
+                    tempIndex = j;
+                } else {
+                    break;
+                }
+            }
+            if (tempIndex - i > lastIndex - firstIndex) {
+                firstIndex = i;
+                lastIndex = tempIndex;
+            }
+            if (lastIndex > i) {
+                i = lastIndex;
             }
         }
 
-//        if (index == 9) {
-//            System.out.println(this);
-//        }
+        if (lastIndex - firstIndex > 0) {
+            instance = new int[]{firstIndex, lastIndex};
+        }
 
-        return index;
+        return instance;
     }
 }

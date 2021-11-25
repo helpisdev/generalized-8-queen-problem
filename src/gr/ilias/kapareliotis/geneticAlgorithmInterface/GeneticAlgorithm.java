@@ -58,8 +58,8 @@ abstract public class GeneticAlgorithm {
         for (Node node : this.population) {
             if (this.lastScore < node.getFitnessScore()) {
                 this.lastScore = node.getFitnessScore();
-                System.out.println("Score: " + node.getFitnessScore());
             }
+
             if (node.getFitnessScore() == this.fitnessGoal) {
                 return node;
             }

@@ -55,12 +55,12 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
 
     @Override
     public Node[] reproduce(Node[] parents) {
-        int schema = 0;
-        Node schemaNode = null;
-        for (Node parent : parents) {
-            if (parent.getSchemaInstance() > schema) {
-                schema = parent.getSchemaInstance();
-                schemaNode = parent;
+        final TreeMap<Integer, Node> instances = new TreeMap<>();
+
+        for (Node node : parents) {
+            final int[] instance = node.getSchemaInstance();
+            if (instance != null) {
+                instances.put(instance[1] - instance[0], node);
             }
         }
 
@@ -99,9 +99,32 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
                 }
             }
 
-            if (schemaNode != null) {
-                for (int row = 0; row <= schema; ++row) {
-                    rows[row] = ((NodeImpl) schemaNode).getRows()[row];
+            if (this.getProgress() < 95) {
+                for (Map.Entry<Integer, Node> pair : instances.entrySet()) {
+                    final int[] parentRows = ((NodeImpl) pair.getValue()).getRows();
+
+                    final int startIndex = pair.getValue().getSchemaInstance()[0];
+                    final int endIndex = pair.getValue().getSchemaInstance()[1];
+
+                    if (endIndex + 1 - startIndex >= 0) {
+                        System.arraycopy(parentRows, startIndex, rows, startIndex, endIndex + 1 - startIndex);
+                    }
+
+                    if (endIndex + 1 - startIndex == this.queens - 1) {
+                        final Node[] newChildren = new Node[this.queens];
+
+                        for (int i = 0; i < this.queens; ++i) {
+                            rows[this.queens  - 1] = i;
+                            childRepresentationBuilder.delete(0, childRepresentationBuilder.length());
+                            for (int row : rows) {
+                                childRepresentationBuilder.append(row).append('-');
+                            }
+                            childRepresentationBuilder.deleteCharAt(childRepresentationBuilder.length() - 1);
+
+                            newChildren[i] = new NodeImpl(childRepresentationBuilder.toString(), this);
+                        }
+                        return newChildren;
+                    }
                 }
             }
 
@@ -114,24 +137,6 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
             children[child] = new NodeImpl(childRepresentationBuilder.toString(), this);
         }
 
-        if (schemaNode != null && schema == this.queens - 2) {
-            final Node[] newChildren = new Node[this.queens];
-            for (int row = 0; row <= schema; ++row) {
-                rows[row] = ((NodeImpl) schemaNode).getRows()[row];
-            }
-            for (int i = 0; i < this.queens; ++i) {
-                rows[this.queens  - 1] = i;
-                childRepresentationBuilder.delete(0, childRepresentationBuilder.length());
-                for (int row : rows) {
-                    childRepresentationBuilder.append(row).append('-');
-                }
-                childRepresentationBuilder.deleteCharAt(childRepresentationBuilder.length() - 1);
-
-                newChildren[i] = new NodeImpl(childRepresentationBuilder.toString(), this);
-            }
-            return newChildren;
-        }
-
         return children;
     }
 
@@ -141,14 +146,14 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
 
         final int num1 = new Random().nextInt(1000);
         final int num2 = new Random().nextInt(1000);
-        final int num3 = new Random().nextInt(250);
+        final int num3 = new Random().nextInt(1000);
 
         if (num3 >= num1 && num3 <= num2) {
-            final int mutationIndex = new Random().nextInt(this.queens);
-            final int mutation = new Random().nextInt(this.queens);
-
             final StringBuilder childRepresentationBuilder = new StringBuilder();
             final int[] rows = ((NodeImpl) node).getRows();
+
+            final int mutationIndex = new Random().nextInt(this.queens);
+            final int mutation = new Random().nextInt(this.queens);
             rows[mutationIndex] = mutation;
 
             for (int row : rows) {
@@ -164,8 +169,10 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
 
     @Override
     public void decreasePopulation() {
-        while (super.getPopulation().size() > this.threshold / 1.5) {
-            int length = super.getPopulation().size();
+        final int limit = new Random().nextInt(Math.min(this.queens - 1, 53)) + 2;
+        int length = super.getPopulation().size();
+        while (length > limit) {
+
             for (int i = 0; i < length; ++i) {
                 final Node node = super.getNode(i);
                 if (node.getFitnessScore() < this.threshold) {
@@ -174,9 +181,9 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
                     --i;
                 }
             }
+
             if (this.threshold == super.getLastScore()) break;
             ++this.threshold;
-            System.out.println("Threshold: " + this.threshold + "  --  Goal: " + this.generateFitnessGoal());
         }
     }
 
@@ -189,14 +196,14 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
         boolean foundGoal = false;
         NodeImpl goalNode;
         long totalChildren = 0;
+        double previousProgress = 0;
 
         do {
-            final Node[] parents = this.pickParents(2);
+            final Node[] parents = this.pickParents(new Random().nextInt(Math.min(this.queens - 1, 10)) + 2);
             final Node[] children = this.reproduce(parents);
 
             for (int child = 0; child < children.length; ++child) {
                 children[child] = this.mutate(children[child]);
-//                System.out.println("Child: " + children[child]);
                 ++totalChildren;
             }
 
@@ -204,6 +211,8 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
             if (goalNode != null) {
                 foundGoal = true;
             }
+
+            previousProgress = this.displayProgress(previousProgress, start, parents.length);
 
             for (Node child : children) {
                 super.addNode(child);
@@ -218,11 +227,46 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
         System.out.println("Total children: " + totalChildren);
     }
 
+    private double displayProgress(double previousProgress, long start, int numOfParents) {
+        final double currentProgress = this.getProgress();
+        if (currentProgress > previousProgress) {
+            previousProgress = currentProgress;
+            final long progressTime = System.currentTimeMillis();
+            System.out.printf("Completed %f%%, %d/%d   ---   ",
+                    currentProgress,
+                    super.getLastScore(), this.generateFitnessGoal()
+            );
+            this.displayElapsedTime(start, progressTime);
+            System.out.printf("   ---   Current population: %d   ---   Number of parents: %d%n",
+                    super.getPopulation().size(),
+                    numOfParents
+            );
+        }
+
+        return previousProgress;
+    }
+
+    private double getProgress() {
+        return ((double) super.getLastScore() / this.generateFitnessGoal()) * 100;
+    }
+
     private void displaySolution(long start, long end, NodeImpl goalNode) {
+        System.out.println(goalNode);
+        this.displayElapsedTime(start, end);
+    }
+
+    private void displayElapsedTime(long start, long end) {
         final long elapsedTime = end - start;
         java.text.DecimalFormat formatter = new java.text.DecimalFormat("#,###.###");
-        System.out.println(goalNode);
-        System.out.println("Elapsed time (in seconds): " + formatter.format((double)elapsedTime / 1000));
+        final double seconds = (double)elapsedTime / 1000;
+        if (seconds < 60) {
+            System.out.printf("Elapsed time (in seconds): %s\"", formatter.format(seconds));
+        } else {
+            formatter = new java.text.DecimalFormat("#,###");
+            final int minutes = (int) ((double)elapsedTime / 1000 / 60);
+            final double remainingSeconds = seconds - minutes * 60;
+            System.out.printf("Elapsed time (in minutes and seconds): %d'%s\"", minutes, formatter.format(remainingSeconds));
+        }
     }
 
     private void generateRandomGridImages(int num) {
@@ -241,7 +285,6 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
     private void getUserInput() {
         final Scanner scanner = new Scanner(System.in);
         boolean isInputCorrect;
-        String firstGridImage;
 
         do {
             try {
@@ -256,34 +299,6 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
                 }
 
                 super.setFitnessGoal();
-
-                System.out.printf(
-                        "Enter the starting grid of the queens.%n%s %d columns in the form n-n-n-n: ",
-                        "Enter the row number the queen is currently at for the n-th column for",
-                        this.queens
-                );
-                firstGridImage = scanner.next();
-
-                if (!firstGridImage.matches("(([\\d]+[-?])+)[\\d]+")
-                        || firstGridImage.split("-").length != this.queens) {
-                    System.out.println("The format is incorrect.");
-                    isInputCorrect = false;
-                    continue;
-                }
-
-                NodeImpl root = new NodeImpl(firstGridImage, this);
-                final int[] rows = root.getRows();
-                for (int row : rows) {
-                    if (row >= this.queens) {
-                        System.out.printf("For %d queens the column numbers must be from 0 to %d.",
-                                this.queens, this.queens - 1);
-                        isInputCorrect = false;
-                    }
-                }
-
-                if (isInputCorrect) {
-                    super.addNode(root);
-                }
             } catch (IllegalArgumentException e) {
                 System.out.println(e.getMessage());
                 isInputCorrect = false;

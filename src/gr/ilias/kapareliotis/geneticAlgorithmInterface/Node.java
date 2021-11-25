@@ -4,7 +4,7 @@ import java.util.Objects;
 
 abstract public class Node {
     private final String representation;
-    private int schemaInstance;
+    private int[] schemaInstance = new int[2];
     private int fitnessScore;
     private int weight;
 
@@ -32,15 +32,15 @@ abstract public class Node {
         this.weight = weight;
     }
 
-    public void setSchemaInstance(int schema) {
+    public void setSchemaInstance(int[] schema) {
         this.schemaInstance = schema;
     }
 
-    public int getSchemaInstance() {
+    public int[] getSchemaInstance() {
         return this.schemaInstance;
     }
 
-    public abstract int generateSchemaInstance();
+    public abstract int[] generateSchemaInstance();
 
     @Override
     public String toString() {
