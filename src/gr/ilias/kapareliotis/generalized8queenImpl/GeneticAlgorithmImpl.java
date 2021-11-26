@@ -99,7 +99,7 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
                 }
             }
 
-            if (this.getProgress() < 95) {
+            if (this.getProgress() < 40) {
                 for (Map.Entry<Integer, Node> pair : instances.entrySet()) {
                     final int[] parentRows = ((NodeImpl) pair.getValue()).getRows();
 
@@ -169,7 +169,7 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
 
     @Override
     public void decreasePopulation() {
-        final int limit = new Random().nextInt(Math.min(this.queens - 1, 53)) + 2;
+        final int limit = new Random().nextInt(Math.min(this.queens - 3, (super.getPopulation().size() / 4) + 1)) + 2;
         int length = super.getPopulation().size();
         while (length > limit) {
 
@@ -199,7 +199,8 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
         double previousProgress = 0;
 
         do {
-            final Node[] parents = this.pickParents(new Random().nextInt(Math.min(this.queens - 1, 10)) + 2);
+            final Node[] parents = this.pickParents(
+                    new Random().nextInt(Math.min(this.queens - 3, (super.getPopulation().size() / 5) + 1)) + 2);
             final Node[] children = this.reproduce(parents);
 
             for (int child = 0; child < children.length; ++child) {
@@ -224,7 +225,7 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
 
         final long end = System.currentTimeMillis();
         this.displaySolution(start, end, goalNode);
-        System.out.println("Total children: " + totalChildren);
+        System.out.println("\nTotal children: " + totalChildren);
     }
 
     private double displayProgress(double previousProgress, long start, int numOfParents) {
