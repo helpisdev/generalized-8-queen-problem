@@ -8,6 +8,9 @@ import java.util.*;
 public class GeneticAlgorithmImpl extends GeneticAlgorithm {
     private int queens;
     private int threshold = 0;
+    private boolean useSchemas = false;
+    private int numOfParents = -1;
+    private int populationLimit = -1;
 
     public int generateFitnessGoal(int queens) {
         return queens * (queens - 1) / 2;
@@ -55,16 +58,7 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
 
     @Override
     public Node[] reproduce(Node[] parents) {
-        final TreeMap<Integer, Node> instances = new TreeMap<>();
-
-        for (Node node : parents) {
-            final int[] instance = node.getSchemaInstance();
-            if (instance != null) {
-                instances.put(instance[1] - instance[0], node);
-            }
-        }
-
-        final Node[] children = new Node[parents.length];
+        final Node[] children = new Node[Math.min(parents.length, 250)];
         final StringBuilder childRepresentationBuilder = new StringBuilder();
         final int[] rows = new int[this.queens];
         final int[] indexes = new int[parents.length + 1];
@@ -99,7 +93,15 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
                 }
             }
 
-            if (this.getProgress() < 40) {
+            if (this.useSchemas) {
+                final TreeMap<Integer, Node> instances = new TreeMap<>();
+
+                for (Node node : parents) {
+                    final int[] instance = node.getSchemaInstance();
+                    if (instance != null) {
+                        instances.put(instance[1] - instance[0], node);
+                    }
+                }
                 for (Map.Entry<Integer, Node> pair : instances.entrySet()) {
                     final int[] parentRows = ((NodeImpl) pair.getValue()).getRows();
 
@@ -169,7 +171,11 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
 
     @Override
     public void decreasePopulation() {
-        final int limit = new Random().nextInt(Math.min(this.queens - 3, (super.getPopulation().size() / 4) + 1)) + 2;
+        int limit = Math.max(new Random().nextInt(Math.min(this.queens - 3, (super.getPopulation().size() / 4) + 1)) + 2,
+                this.populationLimit);
+        if (this.numOfParents > limit) {
+            limit = this.numOfParents + 1;
+        }
         int length = super.getPopulation().size();
         while (length > limit) {
 
@@ -191,7 +197,7 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
     public void run() {
         this.getUserInput();
         final long start = System.currentTimeMillis();
-        this.generateRandomGridImages(this.queens * 2);
+        this.generateRandomGridImages(Math.max(Math.min(this.queens * 2, 100), this.populationLimit));
         super.setWeightedPopulation();
         boolean foundGoal = false;
         NodeImpl goalNode;
@@ -200,7 +206,7 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
 
         do {
             final Node[] parents = this.pickParents(
-                    new Random().nextInt(Math.min(this.queens - 3, (super.getPopulation().size() / 5) + 1)) + 2);
+                    Math.max(new Random().nextInt(Math.min(this.queens - 3, (super.getPopulation().size() / 5) + 1)) + 2, this.numOfParents));
             final Node[] children = this.reproduce(parents);
 
             for (int child = 0; child < children.length; ++child) {
@@ -284,24 +290,71 @@ public class GeneticAlgorithmImpl extends GeneticAlgorithm {
     }
 
     private void getUserInput() {
-        final Scanner scanner = new Scanner(System.in);
         boolean isInputCorrect;
-
         do {
             try {
+                final Scanner scanner = new Scanner(System.in);
                 isInputCorrect = true;
 
                 System.out.print("Enter the number of queens (>3): ");
                 this.queens = scanner.nextInt();
                 if (this.queens < 3) {
                     System.out.println("The number of queens must be greater than 3.");
+                    System.out.println();
                     isInputCorrect = false;
                     continue;
                 }
 
                 super.setFitnessGoal();
-            } catch (IllegalArgumentException e) {
-                System.out.println(e.getMessage());
+
+                System.out.print("Do you want to use schemas (Y/N - Default: No)?: ");
+                String option = scanner.next();
+                if (option.toUpperCase().startsWith("Y")) {
+                    this.useSchemas = true;
+                } else if (option.toUpperCase().startsWith("N")) {
+                    this.useSchemas = false;
+                } else {
+                    System.out.println("Invalid option.");
+                    System.out.println();
+                    isInputCorrect = false;
+                    continue;
+                }
+
+                System.out.print("Do you want to manually set the number of parents (Y/N - Default: Random)?: ");
+                option = scanner.next();
+                if (option.toUpperCase().startsWith("Y")) {
+                    System.out.println("Enter the number of parents (>2 && <Number of queens): ");
+                    this.numOfParents = scanner.nextInt();
+                    if (this.numOfParents < 2 || this.numOfParents >= this.queens) {
+                        System.out.println("Invalid option.");
+                        System.out.println();
+                        isInputCorrect = false;
+                        continue;
+                    }
+                } else if (!option.toUpperCase().startsWith("N")) {
+                    System.out.println("Invalid option.");
+                    System.out.println();
+                    isInputCorrect = false;
+                    continue;
+                }
+
+                System.out.print("Do you want to manually set a population limit (Y/N - Default: Random)?: ");
+                option = scanner.next();
+                if (option.toUpperCase().startsWith("Y")) {
+                    System.out.println("Enter the population limit (>=2): ");
+                    this.populationLimit = scanner.nextInt();
+                    if (this.populationLimit < 2) {
+                        isInputCorrect = false;
+                        System.out.println("Invalid option.");
+                        System.out.println();
+                    }
+                } else if (!option.toUpperCase().startsWith("N")) {
+                    System.out.println("Invalid option.");
+                    System.out.println();
+                    isInputCorrect = false;
+                }
+            } catch (Exception e) {
+                System.out.println("Invalid input.\n");
                 isInputCorrect = false;
             }
         } while (!isInputCorrect);
